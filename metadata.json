@@ -1,0 +1,8 @@
+{
+  "name": "Chúc mừng 20/10 · Ngày Phụ nữ Việt Nam",
+  "description": "Thiệp chúc mừng ngày Phụ nữ Việt Nam 20/10 phong cách blog tối giản với hiệu ứng cánh hoa rơi, thư 3D, máy tạo lời chúc AI và hộp nhạc du dương.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
