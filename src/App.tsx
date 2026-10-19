@@ -28,19 +28,19 @@ export default function App() {
   const initialNote = (initialParams.get('note') || '').trim().slice(0, 80);
 
   // Recipient & Sender states
-  const [recipientName, setRecipientName] = useState(() => initialTo || 'Em yêu');
-  const [senderName, setSenderName] = useState(() => initialFrom || 'Anh');
+  const [recipientName, setRecipientName] = useState(() => initialTo || 'Người thương');
+  const [senderName, setSenderName] = useState(() => initialFrom || 'Người gửi');
   const [selectedTopic, setSelectedTopic] = useState<'all' | 'romantic' | 'family' | 'friend' | 'sweet'>(
     initialTopic
   );
   const [customNote, setCustomNote] = useState(initialNote);
 
   // Dedicated Creator Mode vs Pure Recipient Gift Mode
-  // Activated via /dev, /create, ?dev, ?create, or when no ?to= exists on root domain
+  // ONLY true if URL explicitly has ?dev, ?admin, #dev, or #admin
   const [isCreatorMode, setIsCreatorMode] = useState(() => checkIsCreatorMode());
   const [isPreviewAsRecipient, setIsPreviewAsRecipient] = useState(false);
 
-  // If NOT in creator mode (or previewing), it is strictly Recipient Mode (read-only, no config)
+  // If NOT in creator mode (or previewing), it is strictly Recipient Mode (read-only, no config tools)
   const isRecipientMode = !isCreatorMode || isPreviewAsRecipient;
 
   const [isCoverOpen, setIsCoverOpen] = useState(false);
@@ -82,13 +82,17 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [toastMessage]);
 
-  // Sync with browser navigation (popstate)
+  // Sync with browser navigation
   useEffect(() => {
     const handleLocationChange = () => {
       setIsCreatorMode(checkIsCreatorMode());
     };
     window.addEventListener('popstate', handleLocationChange);
-    return () => window.removeEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
+    };
   }, []);
 
   // Update document title when recipient changes
@@ -331,21 +335,6 @@ export default function App() {
     setIsShareModalOpen(true);
   };
 
-  // Transition from Recipient Mode to Creator / Dev Mode
-  const handleSwitchToCreate = () => {
-    try {
-      const newUrl = new URL(window.location.href);
-      newUrl.pathname = '/dev';
-      newUrl.searchParams.set('mode', 'dev');
-      window.history.pushState({}, '', newUrl.toString());
-    } catch {}
-
-    setIsCreatorMode(true);
-    setIsPreviewAsRecipient(false);
-    setIsPersonalizeOpen(true);
-    showToast('Đã mở chế độ tạo thiệp mới! Hãy điền tên người bạn muốn gửi tặng 🌸');
-  };
-
   return (
     <div onClick={handleGlobalClick} className="min-h-screen relative select-none">
       {/* Rose SVG Definition Library */}
@@ -357,7 +346,7 @@ export default function App() {
       {/* Heart Fireworks and Sparkles Canvas */}
       <canvas id="fx" ref={fxCanvasRef} aria-hidden="true" />
 
-      {/* SENDER STUDIO: ONLY visible when Creator Mode is active (/dev, /create, ?dev, ?create) */}
+      {/* SENDER STUDIO: ONLY visible when Creator Mode is active (?dev, ?admin, #dev) */}
       {isCreatorMode && isCoverOpen && (
         <CreatorStudio
           recipientName={recipientName}
@@ -421,10 +410,7 @@ export default function App() {
           }}
         />
 
-        <Footer
-          isRecipientMode={isRecipientMode}
-          onSwitchToCreate={handleSwitchToCreate}
-        />
+        <Footer />
       </main>
 
       {/* Bottom Floating Interactive Toolbar */}
