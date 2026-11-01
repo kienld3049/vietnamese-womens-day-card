@@ -11,6 +11,11 @@ export interface ParticleFxEngine {
   rocket: (x0: number, y0: number, tx: number, ty: number, palette?: string[], scale?: number) => void;
   spray: (x: number, y: number, n?: number) => void;
   balloons: (n?: number) => void;
+  chrysanthemum: (x: number, y: number, palette?: string[], scale?: number) => void;
+  willow: (x: number, y: number, scale?: number) => void;
+  crossette: (x: number, y: number, palette?: string[], scale?: number) => void;
+  doubleHeart: (x: number, y: number, scale?: number) => void;
+  textFirework: (x: number, y: number, text: string, scale?: number) => void;
   palettes: string[][];
   getSize: () => [number, number];
   destroy: () => void;
@@ -261,6 +266,7 @@ export function initFireworks(canvas: HTMLCanvasElement): ParticleFxEngine {
     grow?: number;
     r0?: number;
     r1?: number;
+    trail?: [number, number][];
     color: string;
     tick?: (p: Particle, dt: number) => void;
     onEnd?: (p: Particle) => void;
@@ -306,11 +312,12 @@ export function initFireworks(canvas: HTMLCanvasElement): ParticleFxEngine {
       kind: 'star',
       x,
       y,
-      life: rand(40, 90),
+      life: rand(45, 95),
       add: true,
       tw: rand(0.15, 0.4),
       ph: rand(0, 6),
       color: o.color || '#fff',
+      trail: [[x, y]],
       ...o
     });
   }
@@ -344,18 +351,34 @@ export function initFireworks(canvas: HTMLCanvasElement): ParticleFxEngine {
     if (!c) return;
     const k = p.t / p.life;
     let a = p.alpha * (k > 0.65 ? 1 - (k - 0.65) / 0.35 : 1);
-    c.globalCompositeOperation = p.add ? 'lighter' : 'source-over';
 
     if (p.kind === 'ring') {
       const e = 1 - Math.pow(1 - k, 3);
+      c.globalCompositeOperation = 'lighter';
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
-      c.globalAlpha = (1 - k) * 0.8;
+      c.globalAlpha = (1 - k) * 0.95;
       c.strokeStyle = p.color;
-      c.lineWidth = 3 * (1 - k) + 0.5;
+      c.lineWidth = 4 * (1 - k) + 1;
       c.beginPath();
       c.arc(p.x, p.y, (p.r0 ?? 6) + ((p.r1 ?? 110) - (p.r0 ?? 6)) * e, 0, Math.PI * 2);
       c.stroke();
       return;
+    }
+
+    // Realistic spark motion-blur trail
+    if (p.trail && p.trail.length > 1) {
+      c.globalCompositeOperation = 'lighter';
+      c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      for (let j = 0; j < p.trail.length - 1; j++) {
+        const trK = (j + 1) / p.trail.length;
+        c.globalAlpha = a * trK * 0.65;
+        c.strokeStyle = p.color;
+        c.lineWidth = Math.max(1, p.size * 0.18 * trK);
+        c.beginPath();
+        c.moveTo(p.trail[j][0], p.trail[j][1]);
+        c.lineTo(p.trail[j + 1][0], p.trail[j + 1][1]);
+        c.stroke();
+      }
     }
 
     let sc = p.size;
@@ -363,7 +386,7 @@ export function initFireworks(canvas: HTMLCanvasElement): ParticleFxEngine {
       sc *= Math.min(1, p.t / 8) * (p.pulse ? 1 + 0.12 * Math.sin(p.t * 0.3) : 1);
     }
     if (p.kind === 'star') {
-      a *= 0.45 + 0.55 * Math.abs(Math.sin(p.t * (p.tw || 0.2) + (p.ph || 0)));
+      a *= 0.5 + 0.5 * Math.abs(Math.sin(p.t * (p.tw || 0.2) + (p.ph || 0)));
     }
     if (p.kind === 'glow') {
       a *= 1 - k;
@@ -371,6 +394,7 @@ export function initFireworks(canvas: HTMLCanvasElement): ParticleFxEngine {
     }
     if (a <= 0.01) return;
 
+    c.globalCompositeOperation = p.add ? 'lighter' : 'source-over';
     c.globalAlpha = Math.min(1, a);
     const cos = (Math.cos(p.rot) * sc) / S * 1.5 * dpr;
     const sin = (Math.sin(p.rot) * sc) / S * 1.5 * dpr;
@@ -382,8 +406,13 @@ export function initFireworks(canvas: HTMLCanvasElement): ParticleFxEngine {
     if (!c) return;
     const dt = last ? Math.min((now - last) / 16.667, 3) : 1;
     last = now;
+
+    // Cinematic Phosphor Motion Blur: Soft clear instead of harsh hard wipe
     c.setTransform(1, 0, 0, 1, 0, 0);
-    c.clearRect(0, 0, canvas.width, canvas.height);
+    c.globalCompositeOperation = 'destination-out';
+    c.fillStyle = 'rgba(0, 0, 0, 0.22)';
+    c.fillRect(0, 0, canvas.width, canvas.height);
+    c.globalCompositeOperation = 'source-over';
 
     for (let i = parts.length - 1; i >= 0; i--) {
       const p = parts[i];
@@ -393,6 +422,13 @@ export function initFireworks(canvas: HTMLCanvasElement): ParticleFxEngine {
         parts.splice(i, 1);
         continue;
       }
+
+      // Record spark trail history
+      if (p.trail) {
+        p.trail.push([p.x, p.y]);
+        if (p.trail.length > 5) p.trail.shift();
+      }
+
       p.vx *= Math.pow(p.drag, dt);
       p.vy *= Math.pow(p.drag, dt);
       p.vy += p.g * dt;
@@ -569,11 +605,213 @@ export function initFireworks(canvas: HTMLCanvasElement): ParticleFxEngine {
     }
   }
 
+  // 1. Chrysanthemum Shell: Dense spherical floral burst with sparkling stars
+  function chrysanthemum(x: number, y: number, pal = pick(PALETTES), scale = 1.3) {
+    fireworkAudio.playExplosion(scale * 1.25);
+    glow(x, y, { color: pal[0], size: 240 * scale, life: 30, grow: 0.9 });
+    ring(x, y, '#fff', 160 * scale);
+    ring(x, y, pal[1], 100 * scale);
+
+    // Inner bright core
+    for (let c = 0; c < 24; c++) {
+      const a = rand(0, Math.PI * 2);
+      const v = rand(1.2, 3.2) * scale;
+      spark(x, y, {
+        vx: Math.cos(a) * v,
+        vy: Math.sin(a) * v,
+        drag: 0.94,
+        g: 0.03,
+        size: rand(14, 26),
+        color: '#fff',
+        life: rand(45, 75)
+      });
+    }
+
+    // Outer spherical petals
+    const petalsCount = Math.round(76 * scale);
+    for (let i = 0; i < petalsCount; i++) {
+      const a = (i / petalsCount) * Math.PI * 2 + rand(-0.03, 0.03);
+      const sp = rand(4.2, 7.5) * scale;
+      const color = i % 2 === 0 ? pal[0] : (i % 3 === 0 ? '#ffd166' : pal[1]);
+      spark(x, y, {
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        drag: 0.962,
+        g: 0.032,
+        size: rand(12, 24),
+        color,
+        life: rand(95, 140),
+        tw: rand(0.06, 0.14),
+        ph: rand(0, Math.PI * 2)
+      });
+    }
+  }
+
+  // 2. Willow (Kamuro) Shell: Golden cascading weeping willow with dense long hang-time
+  function willow(x: number, y: number, scale = 1.4) {
+    fireworkAudio.playExplosion(scale * 1.3);
+    fireworkAudio.playWillowShimmer();
+    glow(x, y, { color: '#ffd166', size: 220 * scale, life: 35, grow: 0.8 });
+    ring(x, y, '#ffe699', 140 * scale);
+
+    const goldPalette = ['#ffd166', '#fce19a', '#e6af2e', '#fff3b0', '#ffffff'];
+    const count = Math.round(90 * scale);
+    for (let i = 0; i < count; i++) {
+      const a = rand(0, Math.PI * 2);
+      const v = rand(1.6, 5.5) * scale;
+      spark(x, y, {
+        vx: Math.cos(a) * v,
+        vy: Math.sin(a) * v - 1.0,
+        drag: 0.985, // Ultra-lingering weeping trails
+        g: 0.052,
+        size: rand(12, 28),
+        color: pick(goldPalette),
+        life: rand(140, 200),
+        tw: 0.09,
+        ph: rand(0, Math.PI * 2)
+      });
+    }
+  }
+
+  // 3. Crossette: Stars that split into multiple branches mid-air
+  function crossette(x: number, y: number, pal = pick(PALETTES), scale = 1.1) {
+    fireworkAudio.playExplosion(scale * 0.9);
+    glow(x, y, { color: pal[0], size: 120 * scale, life: 18 });
+
+    const branches = 12;
+    for (let i = 0; i < branches; i++) {
+      const a = (i / branches) * Math.PI * 2;
+      const v = rand(3.5, 5.0) * scale;
+      spark(x, y, {
+        vx: Math.cos(a) * v,
+        vy: Math.sin(a) * v,
+        drag: 0.95,
+        g: 0.02,
+        size: 14,
+        color: pal[0],
+        life: 35,
+        onEnd(p) {
+          fireworkAudio.playPop();
+          for (let k = 0; k < 4; k++) {
+            const subAngle = (k * Math.PI) / 2 + a;
+            spark(p.x, p.y, {
+              vx: Math.cos(subAngle) * 2.2,
+              vy: Math.sin(subAngle) * 2.2,
+              drag: 0.94,
+              g: 0.04,
+              size: 9,
+              color: pal[1] || '#fff',
+              life: rand(40, 70)
+            });
+          }
+        }
+      });
+    }
+  }
+
+  // 4. Double Heart Shell: Inner and outer concentric hearts
+  function doubleHeart(x: number, y: number, scale = 1.25) {
+    scale *= Math.max(0.65, Math.min(1.2, W / 1000));
+    fireworkAudio.playExplosion(scale * 1.1);
+    glow(x, y, { color: '#ff4d7e', size: 160 * scale, life: 26 });
+    ring(x, y, '#ff99b6', 110 * scale);
+
+    // Outer heart
+    const outerN = Math.round(36 * scale);
+    const spOuter = rand(3.5, 4.2) * scale;
+    for (let i = 0; i < outerN; i++) {
+      const t = (i / outerN) * Math.PI * 2;
+      const hx = 16 * Math.pow(Math.sin(t), 3);
+      const hy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+      heart(x, y, {
+        vx: (hx / 16) * spOuter,
+        vy: (hy / 16) * spOuter,
+        drag: 0.96,
+        g: 0.02,
+        size: rand(12, 17) * Math.sqrt(scale),
+        color: '#ff2a6d',
+        life: rand(90, 120),
+        pulse: true
+      });
+    }
+
+    // Inner heart
+    const innerN = Math.round(24 * scale);
+    const spInner = spOuter * 0.58;
+    for (let i = 0; i < innerN; i++) {
+      const t = (i / innerN) * Math.PI * 2;
+      const hx = 16 * Math.pow(Math.sin(t), 3);
+      const hy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+      heart(x, y, {
+        vx: (hx / 16) * spInner,
+        vy: (hy / 16) * spInner,
+        drag: 0.955,
+        g: 0.025,
+        size: rand(8, 12) * Math.sqrt(scale),
+        color: '#ffd166',
+        life: rand(80, 110)
+      });
+    }
+  }
+
+  // 5. Sky Text Projection: Draw text with floating glowing firework star particles
+  function textFirework(x: number, y: number, text: string, scale = 1.0) {
+    fireworkAudio.playExplosion(1.0);
+    const offCanvas = document.createElement('canvas');
+    const offCtx = offCanvas.getContext('2d');
+    if (!offCtx) return;
+
+    const fontSize = Math.max(28, Math.min(48, Math.round(36 * scale)));
+    offCtx.font = `bold ${fontSize}px sans-serif`;
+    const textWidth = Math.ceil(offCtx.measureText(text).width);
+    const textHeight = Math.ceil(fontSize * 1.3);
+
+    offCanvas.width = textWidth + 10;
+    offCanvas.height = textHeight + 10;
+    offCtx.font = `bold ${fontSize}px sans-serif`;
+    offCtx.fillStyle = '#fff';
+    offCtx.fillText(text, 5, fontSize);
+
+    const imgData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height);
+    const data = imgData.data;
+    const startX = x - offCanvas.width / 2;
+    const startY = y - offCanvas.height / 2;
+    const step = 4; // Sample density
+
+    glow(x, y, { color: '#ffd166', size: 180, life: 30 });
+
+    for (let py = 0; py < offCanvas.height; py += step) {
+      for (let px = 0; px < offCanvas.width; px += step) {
+        const idx = (py * offCanvas.width + px) * 4;
+        if (data[idx + 3] > 128) {
+          const pxOffset = rand(-1, 1);
+          const pyOffset = rand(-1, 1);
+          spark(startX + px + pxOffset, startY + py + pyOffset, {
+            vx: rand(-0.25, 0.25),
+            vy: rand(-0.4, 0.1),
+            drag: 0.985,
+            g: 0.012,
+            size: rand(10, 16),
+            color: pick(['#ffd166', '#ff4d7e', '#fff', '#fce19a']),
+            life: rand(90, 140),
+            tw: 0.1,
+            ph: rand(0, Math.PI * 2)
+          });
+        }
+      }
+    }
+  }
+
   return {
     explode,
     rocket,
     spray,
     balloons,
+    chrysanthemum,
+    willow,
+    crossette,
+    doubleHeart,
+    textFirework,
     palettes: PALETTES,
     getSize: () => [W, H],
     destroy: () => {

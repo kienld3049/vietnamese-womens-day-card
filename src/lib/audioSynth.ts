@@ -91,70 +91,89 @@ class FireworkSoundEngine {
 
   /**
    * Sound of realistic firework detonation:
-   * - Deep sub-bass chest thump (Boom)
-   * - Sharp supersonic crack (Blast)
-   * - Rolling distant echo/rumble
-   * - Trailing sparkle crackles (Lách tách)
+   * - Thunderous Sub-Bass Punch (Chest thump 180Hz down to 24Hz)
+   * - Sharp Supersonic Crack (Overdriven mid-high blast)
+   * - Distortion Saturation for true explosive presence
+   * - Reverberant Rolling Low Rumble & Echo
+   * - Trailing Sparkle Crackles (Lách tách đanh giòn)
    */
   public playExplosion(scale = 1.0) {
     if (this.isMuted) return;
     try {
       const ac = getAudioContext();
       const now = ac.currentTime;
-      const vol = Math.min(1.2, 0.45 * Math.max(0.7, scale));
+      // High-impact volume curve for true "đùng đoàng" feel
+      const vol = Math.min(2.2, 0.95 * Math.max(0.8, scale));
 
-      // --- 1. Deep Sub-Bass Punch (Boom) ---
+      // --- 1. Thunderous Sub-Bass Boom (ĐÙNG trầm uy lực) ---
       const boomOsc = ac.createOscillator();
       const boomGain = ac.createGain();
       boomOsc.type = 'sine';
-      // Pitch drop from 160Hz down to 35Hz
-      boomOsc.frequency.setValueAtTime(150 + Math.random() * 30, now);
-      boomOsc.frequency.exponentialRampToValueAtTime(32, now + 0.45);
+      boomOsc.frequency.setValueAtTime(175 + Math.random() * 35, now);
+      boomOsc.frequency.exponentialRampToValueAtTime(26, now + 0.55);
 
-      boomGain.gain.setValueAtTime(vol * 0.9, now);
-      boomGain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+      boomGain.gain.setValueAtTime(vol * 1.35, now);
+      boomGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.95);
 
       boomOsc.connect(boomGain).connect(ac.destination);
       boomOsc.start(now);
-      boomOsc.stop(now + 0.75);
+      boomOsc.stop(now + 1.0);
 
-      // --- 2. Sharp Supersonic Crack (Mid-High Blast) ---
+      // --- 2. Heavy Distortion & Mid-Body Blast (Âm thân nổ chắc nịch) ---
+      const bodyNoise = ac.createBufferSource();
+      bodyNoise.buffer = getNoiseBuffer(ac);
+
+      const bodyFilter = ac.createBiquadFilter();
+      bodyFilter.type = 'lowpass';
+      bodyFilter.frequency.setValueAtTime(450, now);
+      bodyFilter.frequency.exponentialRampToValueAtTime(90, now + 0.35);
+
+      const bodyGain = ac.createGain();
+      bodyGain.gain.setValueAtTime(vol * 1.25, now);
+      bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+
+      bodyNoise.connect(bodyFilter).connect(bodyGain).connect(ac.destination);
+      bodyNoise.start(now);
+      bodyNoise.stop(now + 0.5);
+
+      // --- 3. Supersonic Crack (Tiếng nổ đanh chói tai như pháo thật) ---
       const crackSource = ac.createBufferSource();
       crackSource.buffer = getNoiseBuffer(ac);
 
       const crackFilter = ac.createBiquadFilter();
       crackFilter.type = 'bandpass';
-      crackFilter.frequency.setValueAtTime(950 + Math.random() * 300, now);
-      crackFilter.Q.value = 2.0;
+      crackFilter.frequency.setValueAtTime(1250 + Math.random() * 400, now);
+      crackFilter.Q.value = 1.6;
 
       const crackGain = ac.createGain();
-      crackGain.gain.setValueAtTime(vol * 0.85, now);
-      crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+      crackGain.gain.setValueAtTime(vol * 1.4, now);
+      crackGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
 
       crackSource.connect(crackFilter).connect(crackGain).connect(ac.destination);
       crackSource.start(now);
-      crackSource.stop(now + 0.2);
+      crackSource.stop(now + 0.22);
 
-      // --- 3. Distant Rolling Low Rumble ---
+      // --- 4. Distant Rolling Low Rumble & Atmosphere Echo (Vang dội núi đồi) ---
       const rumbleSource = ac.createBufferSource();
       rumbleSource.buffer = getNoiseBuffer(ac);
 
       const rumbleFilter = ac.createBiquadFilter();
       rumbleFilter.type = 'lowpass';
-      rumbleFilter.frequency.setValueAtTime(180, now);
+      rumbleFilter.frequency.setValueAtTime(220, now);
 
       const rumbleGain = ac.createGain();
-      rumbleGain.gain.setValueAtTime(vol * 0.6, now + 0.04);
-      rumbleGain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+      rumbleGain.gain.setValueAtTime(0.001, now);
+      rumbleGain.gain.linearRampToValueAtTime(vol * 0.9, now + 0.05);
+      rumbleGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.8);
 
       rumbleSource.connect(rumbleFilter).connect(rumbleGain).connect(ac.destination);
       rumbleSource.start(now);
-      rumbleSource.stop(now + 1.25);
+      rumbleSource.stop(now + 1.85);
 
-      // --- 4. Trailing Sparkle Crackles (Tiếng pháo hoa nổ lách tách) ---
-      const crackleCount = Math.floor(4 + Math.random() * 5);
+      // --- 5. Trailing Sparkle Crackles (Lách tách giòn tan) ---
+      const crackleCount = Math.floor(6 + Math.random() * 8);
       for (let i = 0; i < crackleCount; i++) {
-        const delay = 0.12 + Math.random() * 0.65;
+        const delay = 0.14 + Math.random() * 0.85;
         const popTime = now + delay;
 
         const pop = ac.createBufferSource();
@@ -162,15 +181,15 @@ class FireworkSoundEngine {
 
         const popFilter = ac.createBiquadFilter();
         popFilter.type = 'highpass';
-        popFilter.frequency.value = 1800 + Math.random() * 1200;
+        popFilter.frequency.value = 2200 + Math.random() * 1400;
 
         const popGain = ac.createGain();
-        popGain.gain.setValueAtTime(vol * 0.35 * Math.random(), popTime);
-        popGain.gain.exponentialRampToValueAtTime(0.0001, popTime + 0.035);
+        popGain.gain.setValueAtTime(vol * 0.5 * Math.random(), popTime);
+        popGain.gain.exponentialRampToValueAtTime(0.0001, popTime + 0.04);
 
         pop.connect(popFilter).connect(popGain).connect(ac.destination);
         pop.start(popTime);
-        pop.stop(popTime + 0.04);
+        pop.stop(popTime + 0.045);
       }
     } catch {
       // AudioContext policy fallback
@@ -202,6 +221,48 @@ class FireworkSoundEngine {
     } catch {
       // AudioContext policy fallback
     }
+  }
+
+  /**
+   * Shimmering trailing sound for Willow / Kamuro golden fireworks
+   */
+  public playWillowShimmer() {
+    if (this.isMuted) return;
+    try {
+      const ac = getAudioContext();
+      const now = ac.currentTime;
+      for (let i = 0; i < 7; i++) {
+        const delay = 0.2 + i * 0.12 + Math.random() * 0.08;
+        const popTime = now + delay;
+        const pop = ac.createBufferSource();
+        pop.buffer = getNoiseBuffer(ac);
+        const filter = ac.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 2400 + Math.random() * 1000;
+        filter.Q.value = 4.0;
+        const gain = ac.createGain();
+        gain.gain.setValueAtTime(0.12 * Math.random(), popTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, popTime + 0.06);
+        pop.connect(filter).connect(gain).connect(ac.destination);
+        pop.start(popTime);
+        pop.stop(popTime + 0.07);
+      }
+    } catch {
+      // AudioContext policy fallback
+    }
+  }
+
+  /**
+   * Grand Finale multi-burst sound
+   */
+  public playFinaleBurst() {
+    this.playExplosion(1.5);
+    setTimeout(() => this.playExplosion(1.3), 120);
+    setTimeout(() => this.playWillowShimmer(), 250);
+  }
+
+  public get muted(): boolean {
+    return this.isMuted;
   }
 }
 

@@ -10,6 +10,7 @@ import { Footer } from './components/Footer.tsx';
 import { PersonalizeModal } from './components/PersonalizeModal.tsx';
 import { CreatorStudio } from './components/CreatorStudio.tsx';
 import { ShareModal } from './components/ShareModal.tsx';
+import { FireworksShowModal } from './components/FireworksShowModal.tsx';
 import { musicBox } from './lib/audioSynth.ts';
 import { initPetals, initFireworks, type ParticleFxEngine } from './lib/particleEffects.ts';
 import { getCleanGiftUrl, checkIsCreatorMode } from './lib/urlHelper.ts';
@@ -50,6 +51,7 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isPersonalizeOpen, setIsPersonalizeOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isFireworksShowOpen, setIsFireworksShowOpen] = useState(false);
 
   // Canvas refs
   const petalsCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -387,6 +389,7 @@ export default function App() {
           recipientName={recipientName}
           senderName={senderName}
           onOpenLetter={() => setIsLetterOpen(true)}
+          onOpenFireworksShow={() => setIsFireworksShowOpen(true)}
         />
 
         <EnvelopeLetter
@@ -419,6 +422,7 @@ export default function App() {
         isAutoScroll={isAutoScroll}
         onToggleAutoScroll={handleToggleAutoScroll}
         onShootHearts={handleShootHearts}
+        onOpenFireworksShow={() => setIsFireworksShowOpen(true)}
         onOpenPersonalize={() => setIsPersonalizeOpen(true)}
         onShare={handleShare}
         isRecipientMode={isRecipientMode}
@@ -445,6 +449,15 @@ export default function App() {
         senderName={senderName}
         selectedTopic={selectedTopic}
         customNote={customNote}
+        onToast={showToast}
+      />
+
+      {/* Full-Screen Grand Fireworks Show Modal */}
+      <FireworksShowModal
+        isOpen={isFireworksShowOpen}
+        onClose={() => setIsFireworksShowOpen(false)}
+        recipientName={recipientName}
+        senderName={senderName}
         onToast={showToast}
       />
 

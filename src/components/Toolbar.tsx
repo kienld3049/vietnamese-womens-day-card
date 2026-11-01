@@ -5,6 +5,7 @@ interface ToolbarProps {
   isAutoScroll: boolean;
   onToggleAutoScroll: () => void;
   onShootHearts: (buttonElement: HTMLElement) => void;
+  onOpenFireworksShow: () => void;
   onOpenPersonalize: () => void;
   onShare: () => void;
   isRecipientMode: boolean;
@@ -15,6 +16,7 @@ export function Toolbar({
   isAutoScroll,
   onToggleAutoScroll,
   onShootHearts,
+  onOpenFireworksShow,
   onOpenPersonalize,
   onShare,
   isRecipientMode
@@ -115,6 +117,16 @@ export function Toolbar({
           <path d="M12 4v16M6 14l6 6 6-6" />
         </svg>
         <span className="lbl">Tự cuộn</span>
+      </button>
+
+      {/* Grand Fireworks Show Button */}
+      <button
+        className="tool-btn !bg-gradient-to-r !from-[#8e1f3f] !to-[#c2375b] !text-white !shadow-sm hover:!scale-105"
+        onClick={onOpenFireworksShow}
+        title="Mở màn đêm trình diễn pháo hoa điện tử theo kịch bản"
+      >
+        <span className="text-sm">🎆</span>
+        <span className="lbl font-semibold">Xem pháo hoa</span>
       </button>
 
       {/* Heart Blaster with Press & Hold Auto-Fire */}
